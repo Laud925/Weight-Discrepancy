@@ -4,6 +4,13 @@ import streamlit as st
 from logic import invoice_allowed_band, target_band_for_new_invoice_from_gr, run_analysis
 
 st.title("📦 Weight Discrepancy Checker")
+st.markdown(
+    "<p style='color:#cccccc;'>"
+    "Sube los PDFs del shipment (1 GR + 1 o más Invoices). "
+    "El sistema hará el chequeo de discrepancias automáticamente."
+    "</p>",
+    unsafe_allow_html=True
+)
 
 gr_val = st.number_input("GR (kg):", min_value=0.0, value=0.0, step=0.1)
 inv_val = st.number_input("Invoice (kg):", min_value=0.0, value=0.0, step=0.1)
@@ -102,6 +109,7 @@ if run_btn:
         if validation_df is not None:
             st.subheader("📊 Validación – Invoice vs GR vs Nuevo")
             st.dataframe(validation_df, use_container_width=True)
+
 
 
 
