@@ -68,27 +68,40 @@ if calc:
                 unsafe_allow_html=True
             )
 
-uploaded_files = st.file_uploader("Continuar: subir PDFs", type=["pdf"], accept_multiple_files=True)
+uploaded_files = st.file_uploader(
+    "Sube los archivos PDF del shipment (1 GR + 1 o más Invoices)",
+    type=["pdf"],
+    accept_multiple_files=True
+)
 
-if uploaded_files:
-    uploaded = {f.name: f.read() for f in uploaded_files}
+run_btn = st.button("🔎 Ejecutar análisis")
 
-    summary, df_full, df_adjusted, validation_df = run_analysis(uploaded, tol=0.10)
+if run_btn:
+    if not uploaded_files or len(uploaded_files) < 2:
+        st.error("⚠️ Debes subir mínimo 2 PDFs: 1 GR + 1 o más Invoices.")
+    else:
+        uploaded = {f.name: f.read() for f in uploaded_files}
 
-    st.write("📊 RESUMEN DEL SHIPMENT")
-    st.dataframe(summary, use_container_width=True)
+        with st.spinner("Analizando PDFs, por favor espera..."):
+            summary, df_full, df_adjusted, validation_df = run_analysis(uploaded, tol=0.10)
 
-    st.write("📦 Tabla completa (CAT):")
-    st.dataframe(df_full, use_container_width=True)
+        st.success("✅ Análisis completado")
 
-    st.write(f"🔹 Suma NEW WEIGHT lbs: {round(df_full['NEW WEIGHT lbs'].sum(), 2)} lbs")
-    st.write(f"🔹 Suma NEW WEIGHT kgs: {round(df_full['NEW WEIGHT kgs'].sum(), 2)} kg")
+        st.subheader("📊 Resumen del shipment")
+        st.dataframe(summary, use_container_width=True)
 
-    st.write("📦 Solo piezas ajustadas (CAT):")
-    st.dataframe(df_adjusted, use_container_width=True)
+        st.subheader("📦 Tabla completa (CAT)")
+        st.dataframe(df_full, use_container_width=True)
 
-    if validation_df is not None:
-        st.write("📊 VALIDACIÓN – Invoice vs GR vs Nuevo")
-        st.dataframe(validation_df, use_container_width=True)
+        st.write(f"🔹 Suma NEW WEIGHT lbs: {round(df_full['NEW WEIGHT lbs'].sum(), 2)} lbs")
+        st.write(f"🔹 Suma NEW WEIGHT kgs: {round(df_full['NEW WEIGHT kgs'].sum(), 2)} kg")
+
+        st.subheader("📦 Solo piezas ajustadas (CAT)")
+        st.dataframe(df_adjusted, use_container_width=True)
+
+        if validation_df is not None:
+            st.subheader("📊 Validación – Invoice vs GR vs Nuevo")
+            st.dataframe(validation_df, use_container_width=True)
+
 
 
