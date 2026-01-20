@@ -310,7 +310,7 @@ def parse_gr(lines):
     if gr_pieces:
         return float(sum(gr_pieces)), gr_pieces
 
-    raise ValueError("GR: No pude extraer pesos KGM del GR.")
+    raise ValueError("GR: Unable to extract KGM weights from the GR document.")
 
 # =========================
 # Matching por similitud
@@ -473,7 +473,7 @@ def build_validation(inv_df, gr_map, updates):
 # =========================
 def run_analysis(uploaded, tol=TOL_DEFAULT):
     if len(uploaded) < 2:
-        raise ValueError("Sube mínimo 2 PDFs: 1 GR + 1 o más Invoices.")
+        raise ValueError("Please upload at least 2 PDFs: 1 GR and 1 or more invoices.")
 
     invoices = []
     gr_lines = None
@@ -489,9 +489,9 @@ def run_analysis(uploaded, tol=TOL_DEFAULT):
             invoices.append((fname, lines, inv_no))
 
     if gr_lines is None:
-        raise ValueError("No encontré el GR.")
+        raise ValueError("GR file not found in the uploaded documents.")
     if not invoices:
-        raise ValueError("No encontré ninguna invoice con PACKING LIST.")
+        raise ValueError("No invoice with a packing list was found.")
 
     gr_total, gr_pieces = parse_gr(gr_lines)
 
@@ -550,3 +550,4 @@ def run_analysis(uploaded, tol=TOL_DEFAULT):
     }])
 
     return summary, df_full, df_adj, validation_df
+
