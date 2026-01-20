@@ -6,8 +6,8 @@ from logic import invoice_allowed_band, target_band_for_new_invoice_from_gr, run
 st.title("📦 Weight Discrepancy Checker")
 st.markdown(
     "<p style='color:#cccccc;'>"
-    "Sube los PDFs del shipment (1 GR + 1 o más Invoices). "
-    "El sistema hará el chequeo de discrepancias automáticamente."
+    "Upload the shipment PDFs (1 GR + 1 or more invoices). "
+    "The system will automatically check for discrepancies."
     "</p>",
     unsafe_allow_html=True
 )
@@ -15,11 +15,11 @@ st.markdown(
 gr_val = st.number_input("GR (kg):", min_value=0.0, value=0.0, step=0.1)
 inv_val = st.number_input("Invoice (kg):", min_value=0.0, value=0.0, step=0.1)
 
-calc = st.button("Calcular")
+calc = st.button("Calculate")
 
 if calc:
     if gr_val <= 0 or inv_val <= 0:
-        st.error("⚠️ Ingresa valores > 0 para GR e Invoice.")
+        st.error("⚠️ Enter values > 0 for GR and Invoice.")
     else:
         low_allowed, high_allowed = invoice_allowed_band(inv_val)
         in_tol = (low_allowed <= gr_val <= high_allowed)
@@ -76,39 +76,40 @@ if calc:
             )
 
 uploaded_files = st.file_uploader(
-    "Sube los archivos PDF del shipment (1 GR + 1 o más Invoices)",
+    "Upload the shipment PDF files (1 GR + 1 or more invoices).",
     type=["pdf"],
     accept_multiple_files=True
 )
 
-run_btn = st.button("🔎 Ejecutar análisis")
+run_btn = st.button("🔎 Run Analysis")
 
 if run_btn:
     if not uploaded_files or len(uploaded_files) < 2:
-        st.error("⚠️ Debes subir mínimo 2 PDFs: 1 GR + 1 o más Invoices.")
+        st.error("⚠️ You must upload at least 2 PDFs: 1 GR and 1 or more invoices.")
     else:
         uploaded = {f.name: f.read() for f in uploaded_files}
 
-        with st.spinner("Analizando PDFs, por favor espera..."):
+        with st.spinner("Analyzing PDFs, please wait…"):
             summary, df_full, df_adjusted, validation_df = run_analysis(uploaded, tol=0.10)
 
-        st.success("✅ Análisis completado")
+        st.success("✅ Analysis completed")
 
-        st.subheader("📊 Resumen del shipment")
+        st.subheader("📊 Shipment summary")
         st.dataframe(summary, use_container_width=True)
 
-        st.subheader("📦 Tabla completa (CAT)")
+        st.subheader("📦 Full table (CAT)")
         st.dataframe(df_full, use_container_width=True)
 
-        st.write(f"🔹 Suma NEW WEIGHT lbs: {round(df_full['NEW WEIGHT lbs'].sum(), 2)} lbs")
-        st.write(f"🔹 Suma NEW WEIGHT kgs: {round(df_full['NEW WEIGHT kgs'].sum(), 2)} kg")
+        st.write(f"🔹 Sum of NEW WEIGHT lbs: {round(df_full['NEW WEIGHT lbs'].sum(), 2)} lbs")
+        st.write(f"🔹 Sum of NEW WEIGHT kgs: {round(df_full['NEW WEIGHT kgs'].sum(), 2)} kg")
 
-        st.subheader("📦 Solo piezas ajustadas (CAT)")
+        st.subheader("📦 Adjusted pieces only (CAT)")
         st.dataframe(df_adjusted, use_container_width=True)
 
         if validation_df is not None:
-            st.subheader("📊 Validación – Invoice vs GR vs Nuevo")
+            st.subheader("📊 Validation – Invoice vs GR vs New Weight")
             st.dataframe(validation_df, use_container_width=True)
+
 
 
 
