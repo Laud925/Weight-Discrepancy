@@ -6,8 +6,8 @@ from logic import invoice_allowed_band, target_band_for_new_invoice_from_gr, run
 st.title("📦 Weight Discrepancy Checker")
 st.markdown(
     "<p style='color:#cccccc;'>"
-    "Pre-check calculator used to determine whether a weight discrepancy exists "
-    "before uploading documents."
+    "Upload the shipment PDFs (1 GR + 1 or more invoices). "
+    "The system will automatically check for discrepancies."
     "</p>",
     unsafe_allow_html=True
 )
@@ -76,8 +76,7 @@ if calc:
             )
 
 uploaded_files = st.file_uploader(
-    "Upload the shipment PDF files (1 GR + 1 or more invoices)."
-    " The system will automatically check for discrepancies.",
+    "Upload the shipment PDF files (1 GR + 1 or more invoices).",
     type=["pdf"],
     accept_multiple_files=True
 )
@@ -96,7 +95,6 @@ if run_btn:
         st.success("✅ Analysis completed")
 
         st.subheader("📊 Shipment summary")
-        st.caption(
         st.dataframe(summary, use_container_width=True)
 
         st.subheader("📦 Full table (CAT)")
@@ -111,11 +109,6 @@ if run_btn:
         if validation_df is not None:
             st.subheader("📊 Validation – Invoice vs GR vs New Weight")
             st.dataframe(validation_df, use_container_width=True)
-
-
-
-
-
 
 
 
