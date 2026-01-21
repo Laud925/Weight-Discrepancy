@@ -96,6 +96,9 @@ if run_btn:
         st.success("✅ Analysis completed")
 
         st.subheader("📊 Shipment summary")
+        st.caption(
+    "High-level overview of the shipment, including totals, tolerance ranges, "
+    "and compliance status before and after the adjustment."
         st.dataframe(summary, use_container_width=True)
 
         st.subheader("📦 Full table (CAT)")
@@ -110,6 +113,7 @@ if run_btn:
         if validation_df is not None:
             st.subheader("📊 Validation – Invoice vs GR vs New Weight")
             st.dataframe(validation_df, use_container_width=True)
+
 
 
 
