@@ -77,7 +77,7 @@ if calc:
 
 uploaded_files = st.file_uploader(
     "Upload the shipment PDF files (1 GR + 1 or more invoices)."
-    "The system will automatically check for discrepancies.",
+    " The system will automatically check for discrepancies.",
     type=["pdf"],
     accept_multiple_files=True
 )
@@ -110,6 +110,7 @@ if run_btn:
         if validation_df is not None:
             st.subheader("📊 Validation – Invoice vs GR vs New Weight")
             st.dataframe(validation_df, use_container_width=True)
+
 
 
 
