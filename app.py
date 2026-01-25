@@ -101,9 +101,11 @@ if run_btn:
         )
         st.dataframe(summary, use_container_width=True)
 
-        st.subheader("📦 Full table (CAT)")
+        st.subheader("📦 All Pieces Weight Summary (Used for Total Validation")
         st.caption(
-            "Final CAT table with the calculated new weight for each case/box (the operational output)."
+        "Consolidated view of all shipment pieces, including adjusted and non-adjusted cases. "
+        "This table is used to verify the total weight and confirm that the shipment no longer "
+        "has a weight discrepancy."
         )
         st.dataframe(df_full, use_container_width=True)
 
@@ -122,3 +124,4 @@ if run_btn:
                 "Case-level traceability: original invoice weight vs matched GR weight vs the new calculated weight."
             )
             st.dataframe(validation_df, use_container_width=True)
+
