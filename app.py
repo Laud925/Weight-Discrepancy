@@ -101,7 +101,7 @@ if run_btn:
         )
         st.dataframe(summary, use_container_width=True)
 
-        st.subheader("📦 All Pieces Weight Summary (Used for Total Validation")
+        st.subheader("📦 All Pieces Weight Summary (Used for Total Validation)")
         st.caption(
         "Consolidated view of all shipment pieces, including adjusted and non-adjusted cases. "
         "This table is used to verify the total weight and confirm that the shipment no longer "
@@ -124,4 +124,5 @@ if run_btn:
                 "Case-level traceability: original invoice weight vs matched GR weight vs the new calculated weight."
             )
             st.dataframe(validation_df, use_container_width=True)
+
 
