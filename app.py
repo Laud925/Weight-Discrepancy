@@ -6,8 +6,8 @@ from logic import invoice_allowed_band, target_band_for_new_invoice_from_gr, run
 st.title("📦 Weight Discrepancy Checker")
 st.markdown(
     "<p style='color:#cccccc;'>"
-    "Pre-check calculator used to determine whether a weight discrepancy exists "
-    "before uploading documents."
+    "Upload the shipment PDFs (1 GR + 1 or more invoices). "
+    "The system will automatically check for discrepancies."
     "</p>",
     unsafe_allow_html=True
 )
@@ -29,7 +29,7 @@ if calc:
         st.markdown(
             "<div style='padding:10px;border:1px solid #ddd;border-radius:8px;'>"
             "<h3 style='margin:0;color:#c00000;'>Weight discrepancy</h3>"
-            "<div style='margin-top:6px;'><b>Tolerancia:</b> ±10% (banda permitida sobre el total de la invoice)</div>"
+            "<div style='margin-top:6px;'><b>Tolerance:</b> ±10% (allowed band based on the invoice total)</div>"
             "</div>",
             unsafe_allow_html=True
         )
@@ -44,8 +44,8 @@ if calc:
 
         st.markdown(
             "<div style='margin-top:10px;padding:10px;border:1px solid #ddd;border-radius:8px;'>"
-            "<b>Target band para el NUEVO total de Invoice (basado en GR):</b><br>"
-            "Si hay discrepancy, el ajuste buscará que el nuevo total de la factura quede dentro de este rango."
+            "<b>Target band for the NEW invoice total (based on GR):</b><br>"
+            "If there is a discrepancy, the adjustment will aim to keep the new invoice total within this range."
             "</div>",
             unsafe_allow_html=True
         )
@@ -60,8 +60,8 @@ if calc:
             st.markdown(
                 "<div style='margin-top:10px;padding:10px;border-radius:8px;"
                 "background:#e7f7e7;border:1px solid #6bbf6b;'>"
-                "<b style='color:#1b5e20'>✅ NO hay weight discrepancy.</b><br>"
-                "No necesitas subir documentos."
+                "<b style='color:#1b5e20'>✅ No weight discrepancy.</b><br>"
+                "You do not need to upload documents."
                 "</div>",
                 unsafe_allow_html=True
             )
@@ -69,8 +69,8 @@ if calc:
             st.markdown(
                 "<div style='margin-top:10px;padding:10px;border-radius:8px;"
                 "background:#fff4e5;border:1px solid #ffb74d;'>"
-                "<b style='color:#e65100'>⚠️ SÍ hay weight discrepancy.</b><br>"
-                "Si quieres, sube los PDFs para hacer la corrección (se ajusta la factura)."
+                "<b style='color:#e65100'>⚠️ Weight discrepancy detected.</b><br>"
+                "If you want, upload the PDFs to run the correction (the invoice will be adjusted)."
                 "</div>",
                 unsafe_allow_html=True
             )
@@ -95,23 +95,30 @@ if run_btn:
         st.success("✅ Analysis completed")
 
         st.subheader("📊 Shipment summary")
+        st.caption(
+            "High-level overview of the shipment: totals, tolerance ranges, and compliance status "
+            "before and after the adjustment."
+        )
         st.dataframe(summary, use_container_width=True)
 
         st.subheader("📦 Full table (CAT)")
+        st.caption(
+            "Final CAT table with the calculated new weight for each case/box (the operational output)."
+        )
         st.dataframe(df_full, use_container_width=True)
 
         st.write(f"🔹 Sum of NEW WEIGHT lbs: {round(df_full['NEW WEIGHT lbs'].sum(), 2)} lbs")
         st.write(f"🔹 Sum of NEW WEIGHT kgs: {round(df_full['NEW WEIGHT kgs'].sum(), 2)} kg")
 
         st.subheader("📦 Adjusted pieces only (CAT)")
+        st.caption(
+            "Subset of cases that were adjusted to bring the invoice total within the acceptable tolerance range."
+        )
         st.dataframe(df_adjusted, use_container_width=True)
 
         if validation_df is not None:
             st.subheader("📊 Validation – Invoice vs GR vs New Weight")
+            st.caption(
+                "Case-level traceability: original invoice weight vs matched GR weight vs the new calculated weight."
+            )
             st.dataframe(validation_df, use_container_width=True)
-
-
-
-
-
-
