@@ -13,10 +13,6 @@ st.set_page_config(page_title="Weight Discrepancy Checker", layout="wide")
 # Header
 # =========================
 st.title("📦 Weight Discrepancy Checker")
-st.write(
-    "Upload the shipment PDFs (1 GR + 1 or more Invoices). "
-    "The system will automatically check for weight discrepancies and propose corrected weights when needed."
-)
 
 # =========================
 # Pre-check Calculator
@@ -153,3 +149,4 @@ if run_btn:
                 "Please verify that you uploaded 1 GR and at least 1 Invoice with a PACKING LIST."
             )
             st.exception(e)
+
