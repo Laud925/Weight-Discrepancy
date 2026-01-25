@@ -129,7 +129,7 @@ if run_btn:
             st.subheader("📦 Adjusted Pieces Only (CAT)")
             st.caption(
                 "Only the cases that were modified to bring the shipment back within tolerance. "
-                "Use this table to prepare CAT updates."
+                "Use this table to prepare CAT tickets."
             )
             st.dataframe(df_adjusted, use_container_width=True)
 
@@ -149,6 +149,7 @@ if run_btn:
                 "Please verify that you uploaded 1 GR and at least 1 Invoice with a PACKING LIST."
             )
             st.exception(e)
+
 
 
 
