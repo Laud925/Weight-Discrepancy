@@ -6,8 +6,8 @@ from logic import invoice_allowed_band, target_band_for_new_invoice_from_gr, run
 st.title("📦 Weight Discrepancy Checker")
 st.markdown(
     "<p style='color:#cccccc;'>"
-    "Upload the shipment PDFs (1 GR + 1 or more invoices). "
-    "The system will automatically check for discrepancies."
+    "Pre-check calculator used to determine whether a weight discrepancy exists "
+    "based on the ±10% tolerance rule, before uploading any documents
     "</p>",
     unsafe_allow_html=True
 )
@@ -124,5 +124,6 @@ if run_btn:
                 "Case-level traceability: original invoice weight vs matched GR weight vs the new calculated weight."
             )
             st.dataframe(validation_df, use_container_width=True)
+
 
 
