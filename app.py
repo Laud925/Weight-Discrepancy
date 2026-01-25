@@ -7,7 +7,7 @@ st.title("📦 Weight Discrepancy Checker")
 st.markdown(
     "<p style='color:#cccccc;'>"
     "Pre-check calculator used to determine whether a weight discrepancy exists "
-    "based on the ±10% tolerance rule, before uploading any documents
+    "based on the ±10% tolerance rule, before uploading any documents"
     "</p>",
     unsafe_allow_html=True
 )
@@ -124,6 +124,7 @@ if run_btn:
                 "Case-level traceability: original invoice weight vs matched GR weight vs the new calculated weight."
             )
             st.dataframe(validation_df, use_container_width=True)
+
 
 
 
