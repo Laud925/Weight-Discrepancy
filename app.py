@@ -20,7 +20,7 @@ st.title("📦 Weight Discrepancy Checker")
 st.subheader("🧮 Pre-check Calculator")
 st.caption(
     "Pre-check calculator used to determine whether a weight discrepancy exists based on the ±10% tolerance"
-    "rule, before uploading any documents"
+    " rule, before uploading any documents"
 )
 
 col1, col2 = st.columns(2)
@@ -149,6 +149,7 @@ if run_btn:
                 "Please verify that you uploaded 1 GR and at least 1 Invoice with a PACKING LIST."
             )
             st.exception(e)
+
 
 
 
