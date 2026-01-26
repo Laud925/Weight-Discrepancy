@@ -52,7 +52,7 @@ PACKING_LIST_RE = re.compile(
 )
 
 # =========================
-# Bands
+# Bands (versión usada por la app: con tol param)
 # =========================
 def invoice_allowed_band(inv_total, tol=0.10):
     # Banda permitida basada en el TOTAL de la invoice
@@ -134,6 +134,46 @@ def extract_invoice_number(lines):
         candidates = re.findall(r"\b(?!CAPL\b)[A-Z]{1,5}\s*\d{5,12}\b", u)
         if candidates:
             return normalize_invoice_no(candidates[0])
+
+    return None
+
+# =========================
+# CONTAINER NUM extraction (solo para summary)
+# - Soporta: "CONTAINER NUM: DBS250135 010526" (2 tokens)
+# - Soporta: "CNTR NO 2178DBS_1230202" (underscore)
+# - Evita capturar "CNTR" pegado al final (lookahead)
+# =========================
+def normalize_container_no(s: str) -> str:
+    """
+    Deja letras, números, _, -, / y espacios.
+    Quita espacios internos.
+    """
+    s = (s or "").strip().upper()
+    s = re.sub(r"[^A-Z0-9_\-\/\s]", " ", s)
+    s = re.sub(r"\s+", " ", s).strip()
+    s = s.replace(" ", "")
+    return s
+
+def extract_container_number(lines):
+    text = "\n".join(lines)
+    u = text.upper()
+
+    patterns = [
+        # CONTAINER NUM: DBS250135 010526
+        r"\bCONTAINER\s*NUM\b\s*[:\-]?\s*"
+        r"(?P<val>[A-Z0-9_\-\/]+(?:\s+[A-Z0-9_\-\/]+)?)"
+        r"(?=\s+(?:CNTR\b|CNTR\s*NO\b|INVOICE\b|INVOICE\s*NO\b|PACKING\b|LIST\b|SHIPMENT\b|TOTAL\b)|\s*$)",
+
+        # CNTR NO 2178DBS_1230202
+        r"\bCNTR\s*NO\b\s*[:\-]?\s*"
+        r"(?P<val>[A-Z0-9_\-\/]+(?:\s+[A-Z0-9_\-\/]+)?)"
+        r"(?=\s+(?:CNTR\b|CONTAINER\b|INVOICE\b|INVOICE\s*NO\b|PACKING\b|LIST\b|SHIPMENT\b|TOTAL\b)|\s*$)",
+    ]
+
+    for pat in patterns:
+        m = re.search(pat, u, flags=re.IGNORECASE)
+        if m:
+            return normalize_container_no(m.group("val"))
 
     return None
 
@@ -486,7 +526,8 @@ def run_analysis(uploaded, tol=TOL_DEFAULT):
             gr_file = fname
         else:
             inv_no = extract_invoice_number(lines)
-            invoices.append((fname, lines, inv_no))
+            cntr_no = extract_container_number(lines)  # <-- NUEVO (solo summary)
+            invoices.append((fname, lines, inv_no, cntr_no))
 
     if gr_lines is None:
         raise ValueError("No encontré el GR.")
@@ -495,7 +536,7 @@ def run_analysis(uploaded, tol=TOL_DEFAULT):
 
     gr_total, gr_pieces = parse_gr(gr_lines)
 
-    inv_dfs = [parse_invoice_packing_list(lines, name, inv_no) for name, lines, inv_no in invoices]
+    inv_dfs = [parse_invoice_packing_list(lines, name, inv_no) for name, lines, inv_no, _cntr in invoices]
     inv_df = pd.concat(inv_dfs, ignore_index=True)
 
     if DEDUP_CASES_ACROSS_INVOICES:
@@ -522,10 +563,22 @@ def run_analysis(uploaded, tol=TOL_DEFAULT):
 
     validation_df = build_validation(inv_df, gr_map, updates)
 
+    # Container numbers shown by INVOICE NUMBER (not filename)
+    containers_detected = (
+        " | ".join([
+            f"{(x[2] or 'UNKNOWN_INVOICE')}: {x[3]}"
+            for x in invoices
+            if x[3]
+        ])
+        if any(x[3] for x in invoices)
+        else "N/A"
+    )
+
     summary = pd.DataFrame([{
         "GR file": gr_file,
         "Invoices files": ", ".join([x[0] for x in invoices]),
         "Invoice numbers detected": ", ".join([x[2] for x in invoices if x[2]]) if any(x[2] for x in invoices) else "N/A",
+        "Container numbers detected": containers_detected,
 
         "Invoice total (kg)": round(inv_total, 2),
         "GR total (kg)": round(gr_total, 2),
