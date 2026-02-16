@@ -1,37 +1,17 @@
-import re, io, math
+import re
+import io
 import pandas as pd
 import pdfplumber
-
-# =========================
-# Calculadora previa + target band + upload opcional
-# - Tolerancia fija: ±10%
-# - Validación (banda permitida sobre Invoice total):
-#     GR debe estar dentro de [Invoice*(1-0.10), Invoice*(1+0.10)]
-# - Target band (para corregir el total de la factura):
-#     Nuevo Invoice total debe quedar dentro de [GR/(1+0.10), GR/(1-0.10)]
-# =========================
-
-TOL = 0.10  # 🔒 FIJO ±10%
-
-def invoice_allowed_band(inv_total):
-    low  = inv_total * (1 - TOL)
-    high = inv_total * (1 + TOL)
-    return low, high
-
-def target_band_for_new_invoice_from_gr(gr_total):
-    low  = gr_total / (1 + TOL)  # GR/1.10
-    high = gr_total / (1 - TOL)  # GR/0.90
-    return low, high
 
 # =========================
 # CONFIG
 # =========================
 TOL_DEFAULT = 0.10
 
-# Si un CASE/PACKAGE aparece en 2 invoices, tratar como 1 pieza física (tu caso real)
+# If a CASE/PACKAGE appears in 2 invoices, treat it as the same physical piece
 DEDUP_CASES_ACROSS_INVOICES = True
 
-# Anti-locura (pero GR manda cuando existe match)
+# Anti-crazy bounds (but GR drives when there is a match)
 BIG_MAX_RATIO = 1.25
 BIG_MIN_RATIO = 0.80
 TINY_GUARD_KG = 1.0
@@ -52,14 +32,14 @@ PACKING_LIST_RE = re.compile(
 )
 
 # =========================
-# Bands (versión usada por la app: con tol param)
+# Bands (used by the app)
 # =========================
 def invoice_allowed_band(inv_total, tol=0.10):
-    # Banda permitida basada en el TOTAL de la invoice
+    # Allowed band based on the INVOICE TOTAL
     return inv_total * (1 - tol), inv_total * (1 + tol)
 
 def target_band_for_new_invoice_from_gr(gr_total, tol=0.10):
-    # Rango objetivo para el NUEVO total de invoice (derivado del GR)
+    # Target band for the NEW invoice total derived from GR
     return gr_total / (1 + tol), gr_total / (1 - tol)
 
 # =========================
@@ -84,41 +64,34 @@ def is_gr(lines):
     return ("WAREHOUSE RECEIPT" in u) or ("ORDGR" in u) or re.search(r"\b[A-Z]{3}GR\d{6,}\b", u) is not None
 
 # =========================
-# Invoice number extraction (robusto + normaliza espacios)
-# Ejemplo: "INVOICE NUMBER:   ZDE 044871" -> "ZDE044871"
+# Invoice number extraction
+# Supports: "M 8N 000588" -> "M8N000588"
 # =========================
 def normalize_invoice_no(s: str) -> str:
-    """
-    Normaliza invoice numbers tipo:
-      "M 85 028110" -> "M85028110"
-      "G85 049850"  -> "G85049850"
-      "ZDE 044871"  -> "ZDE044871"
-    """
     s = (s or "").strip().upper()
-    # quita separadores raros pero deja letras/números
     s = re.sub(r"[^A-Z0-9\s\-]", " ", s)
     s = re.sub(r"\s+", " ", s).strip()
-    # quita espacios internos
-    s = s.replace(" ", "")
-    # quita guiones internos
-    s = s.replace("-", "")
+    s = s.replace(" ", "").replace("-", "")
     return s
 
 def extract_invoice_number(lines):
-    """
-    Extrae el INVOICE NUMBER real del PDF.
-    IMPORTANTE: NO confundirse con SHIPMENT (CAPL 2530728315).
-    """
     text = "\n".join(lines)
     u = text.upper()
 
     strong_patterns = [
+        # INVOICE NUMBER: M 8N 000588 (3 tokens)
+        r"\bINVOICE\s+NUMBER\s*[:\-]?\s*([A-Z0-9]{1,5}\s+[A-Z0-9]{1,5}\s+\d{4,10})\b",
+        # INVOICE NUMBER: M8N 000588 (2 tokens)
+        r"\bINVOICE\s+NUMBER\s*[:\-]?\s*([A-Z0-9]{2,12}\s+\d{4,10})\b",
+        # INVOICE NUMBER: ZDE 044871 / M 85 028110
         r"\bINVOICE\s+NUMBER\s*[:\-]?\s*([A-Z]{1,5}\s*\d{1,3}\s*\d{4,10})\b",
         r"\bINVOICE\s+NUMBER\s*[:\-]?\s*([A-Z]{1,5}\s*\d{4,12})\b",
-        r"\bINVOICE\s+NO\.?\s*[:\-]?\s*([A-Z]{1,5}\s*\d{1,3}\s*\d{4,10})\b",
-        r"\bCOMMERCIAL\s+INVOICE\s+NUMBER\s*[:\-]?\s*([A-Z]{1,5}\s*\d{1,3}\s*\d{4,10})\b",
-        r"\bFACTURA\s*(?:NO\.|NRO|NUMERO|#)?\s*[:\-]?\s*([A-Z]{1,5}\s*\d{1,3}\s*\d{4,10})\b",
-        r"\bN[ÚU]MERO\s+DE\s+FACTURA\s*[:\-]?\s*([A-Z]{1,5}\s*\d{1,3}\s*\d{4,10})\b",
+        # Variants
+        r"\bINVOICE\s+NO\.?\s*[:\-]?\s*([A-Z0-9]{1,5}\s+[A-Z0-9]{1,5}\s+\d{4,10})\b",
+        r"\bINVOICE\s+NO\.?\s*[:\-]?\s*([A-Z0-9]{2,12}\s+\d{4,10})\b",
+        r"\bCOMMERCIAL\s+INVOICE\s+NUMBER\s*[:\-]?\s*([A-Z0-9]{1,5}\s+[A-Z0-9]{1,5}\s+\d{4,10})\b",
+        r"\bFACTURA\s*(?:NO\.|NRO|NUMERO|#)?\s*[:\-]?\s*([A-Z0-9]{1,5}\s+[A-Z0-9]{1,5}\s+\d{4,10})\b",
+        r"\bN[ÚU]MERO\s+DE\s+FACTURA\s*[:\-]?\s*([A-Z0-9]{1,5}\s+[A-Z0-9]{1,5}\s+\d{4,10})\b",
     ]
 
     for pat in strong_patterns:
@@ -126,10 +99,15 @@ def extract_invoice_number(lines):
         if m:
             return normalize_invoice_no(m.group(1))
 
-    m2 = re.search(r"\*{3,}\s*([A-Z]{1,5}\s*\d{1,3}\s*\d{4,10})\s*\*{3,}", u)
+    # Asterisk patterns
+    m2 = re.search(r"\*{3,}\s*([A-Z0-9]{1,5}\s+[A-Z0-9]{1,5}\s+\d{4,10})\s*\*{3,}", u)
     if m2:
         return normalize_invoice_no(m2.group(1))
+    m3 = re.search(r"\*{3,}\s*([A-Z0-9]{2,12}\s+\d{4,10})\s*\*{3,}", u)
+    if m3:
+        return normalize_invoice_no(m3.group(1))
 
+    # Fallback (avoid CAPL)
     if "INVOICE NUMBER" not in u and "INVOICE NO" not in u:
         candidates = re.findall(r"\b(?!CAPL\b)[A-Z]{1,5}\s*\d{5,12}\b", u)
         if candidates:
@@ -138,42 +116,80 @@ def extract_invoice_number(lines):
     return None
 
 # =========================
-# CONTAINER NUM extraction (solo para summary)
-# - Soporta: "CONTAINER NUM: DBS250135 010526" (2 tokens)
-# - Soporta: "CNTR NO 2178DBS_1230202" (underscore)
-# - Evita capturar "CNTR" pegado al final (lookahead)
+# CONTAINER NUM extraction (for Summary only)
+# - Prefers searching inside PACKING LIST block
+# - Avoids grabbing trailing CNTR tokens
+# - Supports: "CONTAINER NUM: 2309 2/13/26 OB"
 # =========================
 def normalize_container_no(s: str) -> str:
-    """
-    Deja letras, números, _, -, / y espacios.
-    Quita espacios internos.
-    """
     s = (s or "").strip().upper()
-    s = re.sub(r"[^A-Z0-9_\-\/\s]", " ", s)
+    s = re.sub(r"[^A-Z0-9_\-\/\s]", " ", s)  # allow _ - /
     s = re.sub(r"\s+", " ", s).strip()
+
+    # Remove typical trailing junk if present
+    s = re.sub(r"(?:\s|^)(CNTR|CNTRNO|CNTR\.?|CONTAINER|NUM|NO)\s*$", "", s).strip()
+    s = re.sub(r"(CNTR|CNTRNO)$", "", s).strip()
+
+    # Remove internal spaces
     s = s.replace(" ", "")
     return s
 
 def extract_container_number(lines):
-    text = "\n".join(lines)
-    u = text.upper()
+    # 1) Prefer searching inside PACKING LIST block
+    block = None
+    try:
+        start = None
+        for i, l in enumerate(lines):
+            if PACKING_LIST_RE.search(l):
+                start = i
+                break
+        if start is not None:
+            tmp = []
+            for l in lines[start:]:
+                u = l.upper().strip()
+                if "INVOICE TOTALS" in u or u.startswith("TOTALS:"):
+                    break
+                tmp.append(l)
+            if tmp:
+                block = tmp
+    except Exception:
+        block = None
+
+    search_lines = block if block else lines
+    text = "\n".join(search_lines).upper()
 
     patterns = [
-        # CONTAINER NUM: DBS250135 010526
-        r"\bCONTAINER\s*NUM\b\s*[:\-]?\s*"
-        r"(?P<val>[A-Z0-9_\-\/]+(?:\s+[A-Z0-9_\-\/]+)?)"
-        r"(?=\s+(?:CNTR\b|CNTR\s*NO\b|INVOICE\b|INVOICE\s*NO\b|PACKING\b|LIST\b|SHIPMENT\b|TOTAL\b)|\s*$)",
-
-        # CNTR NO 2178DBS_1230202
-        r"\bCNTR\s*NO\b\s*[:\-]?\s*"
-        r"(?P<val>[A-Z0-9_\-\/]+(?:\s+[A-Z0-9_\-\/]+)?)"
-        r"(?=\s+(?:CNTR\b|CONTAINER\b|INVOICE\b|INVOICE\s*NO\b|PACKING\b|LIST\b|SHIPMENT\b|TOTAL\b)|\s*$)",
+        r"\bCONTAINER\s*NUM\b\s*[:\-]?\s*(?P<val>[A-Z0-9_\-\/ ]{3,50})",
+        r"\bCNTR\s*NO\b\s*[:\-]?\s*(?P<val>[A-Z0-9_\-\/ ]{3,50})",
     ]
 
-    for pat in patterns:
-        m = re.search(pat, u, flags=re.IGNORECASE)
-        if m:
-            return normalize_container_no(m.group("val"))
+    # Try CONTAINER NUM first
+    m = re.search(patterns[0], text, flags=re.IGNORECASE)
+    if m:
+        val = m.group("val")
+        val = re.split(
+            r"\bCNTR\s*SEAL\b|\bSEAL\b|\bINVOICE\b|\bPACKING\b|\bLIST\b",
+            val,
+            maxsplit=1,
+            flags=re.IGNORECASE
+        )[0].strip()
+        val = re.sub(r"\bCNTR\b\s*$", "", val, flags=re.IGNORECASE).strip()
+        val = re.sub(r"CNTR$", "", val, flags=re.IGNORECASE).strip()
+        return normalize_container_no(val) or None
+
+    # If no CONTAINER NUM, try CNTR NO
+    m2 = re.search(patterns[1], text, flags=re.IGNORECASE)
+    if m2:
+        val = m2.group("val")
+        val = re.split(
+            r"\bCNTR\s*SEAL\b|\bSEAL\b|\bINVOICE\b|\bPACKING\b|\bLIST\b",
+            val,
+            maxsplit=1,
+            flags=re.IGNORECASE
+        )[0].strip()
+        val = re.sub(r"\bCNTR\b\s*$", "", val, flags=re.IGNORECASE).strip()
+        val = re.sub(r"CNTR$", "", val, flags=re.IGNORECASE).strip()
+        return normalize_container_no(val) or None
 
     return None
 
@@ -187,7 +203,7 @@ def extract_packing_list_block(lines, invoice_name):
             start = i
             break
     if start is None:
-        raise ValueError(f"Invoice '{invoice_name}': No encontré PACKING LIST.")
+        raise ValueError(f"Invoice '{invoice_name}': PACKING LIST not found.")
 
     block = []
     for l in lines[start:]:
@@ -197,15 +213,16 @@ def extract_packing_list_block(lines, invoice_name):
         block.append(l)
 
     if not block:
-        raise ValueError(f"Invoice '{invoice_name}': PACKING LIST vacío o mal delimitado.")
+        raise ValueError(f"Invoice '{invoice_name}': PACKING LIST block is empty or malformed.")
     return block
 
 # =========================
-# Invoice parser (CASE / PACKAGE) + guarda INVOICE_NO real
+# Invoice parser (CASE / PACKAGE) + keeps INVOICE_NO
 # =========================
 def parse_invoice_packing_list(lines, invoice_name, invoice_no):
     block = extract_packing_list_block(lines, invoice_name)
 
+    # Stitch lines (same logic as your Colab version)
     stitched = []
     i = 0
     while i < len(block):
@@ -252,12 +269,7 @@ def parse_invoice_packing_list(lines, invoice_name, invoice_no):
             i += 1
             continue
 
-        m = piece_re_src.match(line)
-        if not m:
-            m = piece_re_case.match(line)
-        if not m:
-            m = piece_re_pkg.match(line)
-
+        m = piece_re_src.match(line) or piece_re_case.match(line) or piece_re_pkg.match(line)
         if not m:
             i += 1
             continue
@@ -289,14 +301,14 @@ def parse_invoice_packing_list(lines, invoice_name, invoice_no):
 
     df = pd.DataFrame(rows)
     if df.empty:
-        raise ValueError(f"Invoice '{invoice_name}': No pude extraer piezas del PACKING LIST.")
+        raise ValueError(f"Invoice '{invoice_name}': No pieces could be extracted from PACKING LIST.")
 
     df["CASE_OCC"] = df.groupby(["INVOICE_FILE", "CASE_NO"]).cumcount() + 1
     df["PIECE_ID"] = df["INVOICE_FILE"].astype(str) + "|" + df["CASE_NO"].astype(str) + "|" + df["CASE_OCC"].astype(str)
     return df.reset_index(drop=True)
 
 # =========================
-# Dedupe entre invoices
+# Dedupe across invoices (same physical piece by CASE_NO)
 # =========================
 def collapse_duplicates_across_invoices(inv_df):
     inv_df = inv_df.copy().reset_index(drop=True)
@@ -315,7 +327,7 @@ def collapse_duplicates_across_invoices(inv_df):
     return base.sort_values("CASE_NO").reset_index(drop=True)
 
 # =========================
-# GR parser (KGM)
+# GR parser (KGM) - your original approach
 # =========================
 def parse_gr(lines):
     start = None
@@ -350,10 +362,10 @@ def parse_gr(lines):
     if gr_pieces:
         return float(sum(gr_pieces)), gr_pieces
 
-    raise ValueError("GR: No pude extraer pesos KGM del GR.")
+    raise ValueError("GR: Could not extract KGM weights from the GR.")
 
 # =========================
-# Matching por similitud
+# Similarity matching (sorted-to-sorted)
 # =========================
 def match_gr_to_invoice_by_similarity(inv_df, gr_pieces):
     inv_sorted = inv_df.sort_values("CAT_WEIGHT_KG").reset_index(drop=True)
@@ -365,7 +377,8 @@ def match_gr_to_invoice_by_similarity(inv_df, gr_pieces):
     return mapping, len(inv_sorted), len(gr_sorted)
 
 # =========================
-# Ajuste guiado por GR
+# GR-guided adjustment (target band derived from GR)
+# NEW KG never exceeds matched GR piece
 # =========================
 def gr_guided_adjust_auto(inv_df, gr_map, target_low_total, target_high_total):
     inv = inv_df.copy().reset_index(drop=True)
@@ -437,11 +450,9 @@ def gr_guided_adjust_auto(inv_df, gr_map, target_low_total, target_high_total):
         if delta < MIN_CHANGE_KG:
             continue
 
-        if need_up:
-            new_kg = cur + delta
-        else:
-            new_kg = max(0.01, cur - delta)
+        new_kg = (cur + delta) if need_up else max(0.01, cur - delta)
 
+        # Never exceed matched GR (if exists)
         if gr is not None and isinstance(gr, (int, float)) and gr > 0:
             new_kg = min(new_kg, gr)
 
@@ -451,7 +462,7 @@ def gr_guided_adjust_auto(inv_df, gr_map, target_low_total, target_high_total):
     return updates
 
 # =========================
-# Tablas de salida
+# Output tables
 # =========================
 def build_cat_tables(inv_df, updates):
     rows_full = []
@@ -489,9 +500,7 @@ def build_cat_tables(inv_df, updates):
                 "INVOICE #": r.get("INVOICE_NO", r.get("INVOICE_FILE", "")),
             })
 
-    df_full = pd.DataFrame(rows_full)
-    df_adj = pd.DataFrame(rows_adj)
-    return df_full, df_adj
+    return pd.DataFrame(rows_full), pd.DataFrame(rows_adj)
 
 def build_validation(inv_df, gr_map, updates):
     rows = []
@@ -509,11 +518,11 @@ def build_validation(inv_df, gr_map, updates):
     return pd.DataFrame(rows)
 
 # =========================
-# RUNNER
+# RUNNER (same function name/signature your app imports)
 # =========================
 def run_analysis(uploaded, tol=TOL_DEFAULT):
     if len(uploaded) < 2:
-        raise ValueError("Sube mínimo 2 PDFs: 1 GR + 1 o más Invoices.")
+        raise ValueError("Upload at least 2 PDFs: 1 GR + 1 or more Invoices.")
 
     invoices = []
     gr_lines = None
@@ -526,13 +535,13 @@ def run_analysis(uploaded, tol=TOL_DEFAULT):
             gr_file = fname
         else:
             inv_no = extract_invoice_number(lines)
-            cntr_no = extract_container_number(lines)  # <-- NUEVO (solo summary)
+            cntr_no = extract_container_number(lines)
             invoices.append((fname, lines, inv_no, cntr_no))
 
     if gr_lines is None:
-        raise ValueError("No encontré el GR.")
+        raise ValueError("GR not found.")
     if not invoices:
-        raise ValueError("No encontré ninguna invoice con PACKING LIST.")
+        raise ValueError("No invoice with PACKING LIST was found.")
 
     gr_total, gr_pieces = parse_gr(gr_lines)
 
@@ -549,7 +558,7 @@ def run_analysis(uploaded, tol=TOL_DEFAULT):
 
     target_low_total, target_high_total = target_band_for_new_invoice_from_gr(gr_total, tol)
 
-    gr_map, inv_n, gr_n = match_gr_to_invoice_by_similarity(inv_df, gr_pieces)
+    gr_map, _inv_n, gr_n = match_gr_to_invoice_by_similarity(inv_df, gr_pieces)
 
     updates = {}
     if not in_before:
